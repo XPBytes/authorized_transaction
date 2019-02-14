@@ -1,6 +1,6 @@
 # AuthorizedTransaction
 
-[![Build Status: master](https://travis-ci.com/XPBytes/authorized_transaction.svg)](https://travis-ci.com/XPBytes/authorized_transaction) 
+[![Build Status: master](https://travis-ci.com/XPBytes/authorized_transaction.svg)](https://travis-ci.com/XPBytes/authorized_transaction)
 [![Gem Version](https://badge.fury.io/rb/authorized_transaction.svg)](https://badge.fury.io/rb/authorized_transaction)
 [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
 
@@ -29,6 +29,10 @@ Wrap whatever you want to be authorized in an `authorized_transaction` block:
 ```ruby
 require 'authorized_transaction'
 
+class ApiController < ActionController::API
+  include AuthorizedTransaction
+end
+
 class BookController < ApiController
   def create
     book = authorized_transaction { CreateAndReturnBook.call(params) }
@@ -54,11 +58,22 @@ Authorization work on single resources, or enumerables:
 ```ruby
 class Book::SignatureController < ApiController
   def show
-    _, signature = authorized_transaction do 
+    _, signature = authorized_transaction do
         [FindBook.call(params), FindSignature.call(params)]
     end
     render json: signature, status: :created
   end
+end
+```
+
+### Configuration
+
+In an initializer you can set procs in order to change the default behaviour:
+
+```ruby
+AuthorizedTransaction.configure do |this|
+  this.implicit_action_proc = proc { |controller| controller.action_name.to_sym }
+  this.authorize_proc = proc { |action, resource, controller| action == :whatever || controller.can?(action, resource) }
 end
 ```
 

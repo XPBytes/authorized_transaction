@@ -2,10 +2,17 @@ require "authorized_transaction/version"
 
 require 'active_record'
 require 'active_support/concern'
+require 'active_support/core_ext/module/attribute_accessors'
 
 module AuthorizedTransaction
   extend ActiveSupport::Concern
   class Error < StandardError; end
+
+  mattr_accessor :authorize_proc, :implicit_action_proc, :implicit_action_key
+
+  def self.configure
+    yield self
+  end
 
   class TransactionUnauthorized < RuntimeError
     attr_reader :action, :resource
@@ -19,10 +26,6 @@ module AuthorizedTransaction
     private
 
     attr_writer :action, :resource
-  end
-
-  def implicit_action
-    params[:action]
   end
 
   included do
@@ -55,9 +58,27 @@ module AuthorizedTransaction
 
     def authorize!(action, resource)
       Array(resource).each do |r|
-        next if can?(action, r)
+        next if authorized?(action, r)
         raise TransactionUnauthorized.new(action, r)
       end
     end
+  end
+
+  private
+
+  def implicit_action
+    if implicit_action_proc.respond_to?(:call)
+      return implicit_action_proc(self)
+    end
+
+    params[implicit_action_key || :action]
+  end
+
+  def authorized?(action, resource)
+    if authorize_proc.respond_to?(:call)
+      return authorize_proc(action, resource, self)
+    end
+
+    can?(action, resource)
   end
 end
