@@ -4,7 +4,7 @@
 [![Gem Version](https://badge.fury.io/rb/authorized_transaction.svg)](https://badge.fury.io/rb/authorized_transaction)
 [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
 
-Authorize a certain block with cancan
+Authorize a certain block with cancan(can), or any other authorization framework that exposes a method `can?`.
 
 ## Installation
 
@@ -66,16 +66,37 @@ class Book::SignatureController < ApiController
 end
 ```
 
+By default it will use `ActiveRecord::Base.transaction` to start the transaction, but you may override this:
+```ruby
+AuthorizedTransaction.configure do
+  self.transaction_proc = proc { || CreateDatabaseTransaction.call { yield } }
+end
+
+:authorize_proc, :implicit_action_proc,
+```
+
+The action passed to `authorize_proc` or `can?` is configured by `implicit_action_key` and defaults to `action`:
+```ruby
+AuthorizedTransaction.configure.implicit_action_key = :authorized_action
+```
+
 ### Configuration
+
+- By default it uses `can?` as defined on your controller, but you can configure this via `authorize_proc`.
+- By default it uses the `implicit_action` as defined by `implicit_action_key`, as written above, to determine the
+  implicit action when it's not given. You can also configure these via `implicit_action_key` (fetching from `params`)
+  or `implicit_action_proc` to change completely.
 
 In an initializer you can set procs in order to change the default behaviour:
 
 ```ruby
-AuthorizedTransaction.configure do |this|
-  this.implicit_action_proc = proc { |controller| controller.action_name.to_sym }
-  this.authorize_proc = proc { |action, resource, controller| action == :whatever || controller.can?(action, resource) }
+AuthorizedTransaction.configure do
+  self.implicit_action_proc = proc { |controller| controller.action_name.to_sym }
+  self.authorize_proc = proc { |action, resource, controller| action == :whatever || controller.can?(action, resource) }
 end
 ```
+
+Other configuration options are listed above.
 
 ## Development
 

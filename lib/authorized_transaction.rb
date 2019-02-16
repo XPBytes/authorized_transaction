@@ -1,20 +1,19 @@
 require "authorized_transaction/version"
 
-require 'active_record'
 require 'active_support/concern'
 require 'active_support/core_ext/module/attribute_accessors'
 
 module AuthorizedTransaction
   extend ActiveSupport::Concern
-  class Error < StandardError; end
+  class Error < RuntimeError; end
 
-  mattr_accessor :authorize_proc, :implicit_action_proc, :implicit_action_key
+  mattr_accessor :authorize_proc, :implicit_action_proc, :implicit_action_key, :transaction_proc
 
-  def self.configure
-    yield self
+  def self.configure(&block)
+    block_given? ? instance_exec(self, &block) : self
   end
 
-  class TransactionUnauthorized < RuntimeError
+  class TransactionUnauthorized < Error
     attr_reader :action, :resource
 
     def initialize(action, resource)
@@ -49,7 +48,7 @@ module AuthorizedTransaction
     #   end
     #
     def authorized_transaction(action: implicit_action)
-      ActiveRecord::Base.transaction do
+      create_transaction do
         resource = yield
         authorize! action, resource
         resource
@@ -68,15 +67,24 @@ module AuthorizedTransaction
 
   def implicit_action
     if implicit_action_proc.respond_to?(:call)
-      return implicit_action_proc(self)
+      return instance_exec(self, &implicit_action_proc)
     end
 
     params[implicit_action_key || :action]
   end
 
+  def create_transaction(&block)
+    if transaction_proc.respond_to?(:call)
+      transaction_proc.call(&block)
+    else
+      # Expect active record to be loaded by now
+      ActiveRecord::Base.transaction(&block)
+    end
+  end
+
   def authorized?(action, resource)
     if authorize_proc.respond_to?(:call)
-      return authorize_proc(action, resource, self)
+      return instance_exec(action, resource, self, &authorize_proc)
     end
 
     can?(action, resource)
