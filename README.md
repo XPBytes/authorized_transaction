@@ -98,6 +98,10 @@ end
 
 Other configuration options are listed above.
 
+## Related
+
+- [`ResourceAllowHeader`](https://github.com/XPBytes/resource_allow_header): :triangular_flag_on_post: Allow Header for rack responses using cancan(can) or any other authorization framework
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can
